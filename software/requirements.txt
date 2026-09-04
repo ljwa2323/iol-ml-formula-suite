@@ -1,0 +1,2 @@
+flask>=2.0
+# Model and pipeline are in parent; ensure parent deps: pandas, numpy, scikit-learn, joblib

@@ -1,0 +1,11 @@
+﻿numpy>=1.23
+pandas>=1.5
+scikit-learn>=1.2
+joblib>=1.2
+matplotlib>=3.6
+openpyxl>=3.0
+xgboost>=1.7
+shap>=0.42
+flask>=2.0
+playwright>=1.40
+2captcha-python>=1.2.0

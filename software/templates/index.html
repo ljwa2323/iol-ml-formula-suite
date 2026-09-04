@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ML IOL Calculator</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --optimal: #238636;
+      --border: #30363d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .full { grid-column: 1 / -1; }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 20px 0 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 500; font-size: 0.9rem; }
+    tr.optimal { background: rgba(35, 134, 54, 0.15); }
+    tr.optimal td { font-weight: 600; }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--optimal);
+      color: #fff;
+      margin-left: 8px;
+    }
+    .error { color: #f85149; margin-top: 12px; }
+    code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ML IOL Calculator</h1>
+    <p class="subtitle">Input biometry and target refraction; get 5 IOL options with predicted postoperative SE (optimal in the middle).</p>
+
+    {% if pipeline_error %}
+    <div class="card" style="border-color: #f85149;">
+      <p class="error" style="margin-top: 0;">{{ pipeline_error }}</p>
+      <p class="subtitle" style="margin-bottom: 0;">Run from project root: <code>python ml_postSE_models.py --save-models</code></p>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="form-grid">
+        <div>
+          <label for="AL">AL (mm)</label>
+          <input type="number" id="AL" step="0.01" placeholder="e.g. 24.5" required>
+        </div>
+        <div>
+          <label for="ACD">ACD (mm)</label>
+          <input type="number" id="ACD" step="0.01" placeholder="e.g. 3.0">
+        </div>
+        <div>
+          <label for="LT">LT (mm)</label>
+          <input type="number" id="LT" step="0.01" placeholder="e.g. 4.5">
+        </div>
+        <div>
+          <label for="CCT">CCT (um)</label>
+          <input type="number" id="CCT" step="1" placeholder="e.g. 550">
+        </div>
+        <div>
+          <label for="W2W">WTW / W2W (mm)</label>
+          <input type="number" id="W2W" step="0.01" placeholder="e.g. 12.0">
+        </div>
+        <div>
+          <label for="K1">K1 (D)</label>
+          <input type="number" id="K1" step="0.01" placeholder="e.g. 43">
+        </div>
+        <div>
+          <label for="K2">K2 (D)</label>
+          <input type="number" id="K2" step="0.01" placeholder="e.g. 44">
+        </div>
+        <div>
+          <label for="reserve">Target SE / 预留 (D)</label>
+          <input type="number" id="reserve" step="0.25" value="-0.5" placeholder="-0.5">
+        </div>
+        <div>
+          <label for="model">Model</label>
+          <select id="model">
+            {% for m in models %}
+            <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <p class="section-title">Optional (multimodal)</p>
+      <div class="form-grid">
+        <div><label for="B">B超</label><input type="number" id="B" step="0.01" placeholder="optional"></div>
+        <div><label for="A">A</label><input type="number" id="A" step="0.01" placeholder="optional"></div>
+        <div><label for="T">T</label><input type="number" id="T" step="0.01" placeholder="optional"></div>
+        <div><label for="N">N</label><input type="number" id="N" step="0.01" placeholder="optional"></div>
+      </div>
+      <button type="button" class="btn" id="calcBtn">Calculate</button>
+      <p id="errMsg" class="error hidden"></p>
+    </div>
+
+    <div class="card hidden" id="resultCard">
+      <h2 style="font-size: 1.1rem; margin-top: 0;">Results</h2>
+      <p class="subtitle" style="margin-bottom: 12px;">Target SE: <span id="targetSe"></span> D &nbsp;|&nbsp; Model: <span id="modelUsed"></span></p>
+      <table>
+        <thead>
+          <tr>
+            <th>IOL (D)</th>
+            <th>Predicted postoperative SE (D)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const calcBtn = document.getElementById("calcBtn");
+    const errMsg = document.getElementById("errMsg");
+    const resultCard = document.getElementById("resultCard");
+    const resultBody = document.getElementById("resultBody");
+    const targetSeEl = document.getElementById("targetSe");
+    const modelUsedEl = document.getElementById("modelUsed");
+
+    function getPayload() {
+      const num = (id) => {
+        const v = document.getElementById(id).value.trim();
+        return v === "" ? null : parseFloat(v);
+      };
+      const payload = {
+        AL: num("AL"),
+        ACD: num("ACD"),
+        LT: num("LT"),
+        CCT: num("CCT"),
+        W2W: num("W2W"),
+        K1: num("K1"),
+        K2: num("K2"),
+        预留: num("reserve") !== null ? num("reserve") : -0.5,
+        model: document.getElementById("model").value,
+      };
+      if (num("B") !== null) payload["B超"] = num("B");
+      if (num("A") !== null) payload["A"] = num("A");
+      if (num("T") !== null) payload["T"] = num("T");
+      if (num("N") !== null) payload["N"] = num("N");
+      return payload;
+    }
+
+    calcBtn.addEventListener("click", async () => {
+      errMsg.classList.add("hidden");
+      const payload = getPayload();
+      if (payload.AL == null || isNaN(payload.AL)) {
+        errMsg.textContent = "Please enter AL.";
+        errMsg.classList.remove("hidden");
+        return;
+      }
+      calcBtn.disabled = true;
+      try {
+        const r = await fetch("/api/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          errMsg.textContent = data.error || "Request failed.";
+          errMsg.classList.remove("hidden");
+          return;
+        }
+        if (!data.ok || !data.options) {
+          errMsg.textContent = data.error || "No results.";
+          errMsg.classList.remove("hidden");
+          return;
+        }
+        targetSeEl.textContent = data.target_se;
+        modelUsedEl.textContent = data.model;
+        resultBody.innerHTML = data.options.map((opt) => {
+          const row = opt.is_optimal ? '<tr class="optimal">' : "<tr>";
+          const badge = opt.is_optimal ? '<span class="badge">Optimal</span>' : "";
+          return row + "<td>" + opt.iol + "</td><td>" + opt.pred_se + "</td><td>" + badge + "</td></tr>";
+        }).join("");
+        resultCard.classList.remove("hidden");
+      } catch (e) {
+        errMsg.textContent = "Network error: " + e.message;
+        errMsg.classList.remove("hidden");
+      } finally {
+        calcBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "RBF Calculator Fill & Collect",
+  "version": "1.1",
+  "description": "Fill/collect Hill-RBF samples from JSON, with Auto run loop (captcha still needs solve).",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://rbfcalculator.com/*", "https://iolcalculator.haag-streit.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RBF Fill & Collect"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://rbfcalculator.com/online/*",
+        "https://rbfcalculator.com/*",
+        "https://iolcalculator.haag-streit.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}
